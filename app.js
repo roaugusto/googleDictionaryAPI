@@ -1,22 +1,40 @@
-var   express = require("express"),
-      app     = express(),
-      cheerio = require("cheerio"),
-      request = require('request'),
-      path    = require("path");
+var express = require("express"),
+    app = express(),
+    cheerio = require("cheerio"),
+    request = require('request'),
+    path = require("path");
+
+const port = process.env.PORT || 3001
 
 app.use(express.static('public'));
 
-app.get("/", function(req, res){
-    
-   if(!req.query.define){
-       res.sendFile(path.join(__dirname+'/views//index.html'));
-   }  else {
-        if(encodeURIComponent(req.query.define).includes("%")){
-                 console.log("yes");
-                 res.header("Access-Control-Allow-Origin", "*");
-                 return res.status(404).sendFile(path.join(__dirname+'/views/404.html'));
+app.get("/", function (req, res) {
+
+    var wordNotFound = {
+        "word": req.query.define,
+        "phonetic": "",
+        "meaning": {
+            "Main definition": [
+                {
+                    "definition": "Word not found!"
+                }
+            ]
         }
-        
+    }
+
+    if (!req.query.define) {
+        res.sendFile(path.join(__dirname + '/views//index.html'));
+    } else {
+        if (encodeURIComponent(req.query.define).includes("%")) {
+            console.log("yes");
+            // res.header("Access-Control-Allow-Origin", "*");
+            // res.send(JSON.stringify(wordNotFound, null, 4));            
+            // return res.status(404).sendFile(path.join(__dirname+'/views/404.html'));
+            res.header("Content-Type", 'application/json');
+            res.header("Access-Control-Allow-Origin", "*");
+            return res.send(JSON.stringify(wordNotFound, null, 4));
+        }
+
         var url = 'https://en.oxforddictionaries.com/search?filter=noad&query=' + req.query.define;
         // if(req.query.lang){
         //   url =  url.replace('en', req.query.lang);
@@ -24,88 +42,91 @@ app.get("/", function(req, res){
         //       url =  url.replace('define', 'matlab');
         //   }
         // }
-        
+
         url = encodeURI(url);
 
         request({
-        method: 'GET',
-        url: url,
-        headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0"
-        }
-    }, function(err, response, body) {
-        
-            if(err){
+            method: 'GET',
+            url: url,
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:58.0) Gecko/20100101 Firefox/58.0"
+            }
+        }, function (err, response, body) {
+
+            if (err) {
                 return console.error(err);
             }
-            
+
             var $ = cheerio.load(body);
 
-                    
-                    
-            if(!($(".hwg .hw").first()[0])){
+
+
+            if (!($(".hwg .hw").first()[0])) {
                 console.log($(".searchHeading").first().text());
                 console.log(req.query.define + " is not present in Dictionary.");
+                // res.header("Access-Control-Allow-Origin", "*");
+                // return res.status(404).sendFile(path.join(__dirname + '/views/404.html'));
+                res.header("Content-Type", 'application/json');
                 res.header("Access-Control-Allow-Origin", "*");
-                return res.status(404).sendFile(path.join(__dirname+'/views/404.html'));
+                return res.send(JSON.stringify(wordNotFound, null, 4));    
             }
-            
-            var word  = $(".hwg .hw").first()[0].childNodes[0].nodeValue;
+
+            var word = $(".hwg .hw").first()[0].childNodes[0].nodeValue;
             var dictionary = {};
             dictionary.word = word;
-            
+
             dictionary.phonetic = $(".phoneticspelling").first().text();
-            if(dictionary.phonetic.length < 1)
+            if (dictionary.phonetic.length < 1)
                 dictionary.phonetic = undefined;
 
             dictionary.meaning = {};
 
-            var i,j = 0;
+            var i, j = 0;
 
             var entryHead = $(".entryHead.primary_homograph");
             var array = [];
-            for(i = 1; i < entryHead.length; i++){
-                array[i - 1] = $("#" + entryHead[i - 1].attribs.id + " ~ .gramb").length - $("#" + entryHead[i].attribs.id + " ~ .gramb").length ;
+            for (i = 1; i < entryHead.length; i++) {
+                array[i - 1] = $("#" + entryHead[i - 1].attribs.id + " ~ .gramb").length - $("#" + entryHead[i].attribs.id + " ~ .gramb").length;
             }
-            array.push($("#" + entryHead[entryHead.length - 1].attribs.id + " ~ .gramb").length);     
-            
+            array.push($("#" + entryHead[entryHead.length - 1].attribs.id + " ~ .gramb").length);
+
             var grambs = $("section.gramb");
-            
-            for(i = 0; i < grambs.length; i++){
-                	if(i + 1> array[j]){
-                		break;
-                	}
-                	var partofspeech = $(grambs[i]).find(".ps.pos .pos").text();
-                	$(grambs[i]).find(".semb").each(function(i, element){
-                		var meaningArray = [];
-                		$(element).find("> li").each(function(i, element){
-                		    
-                			var item = $(element).find("> .trg");
-                			
-                			var definition = $(item).find(" > p > .ind").text();
-                			var example = $(item).find(" > .exg  > .ex > em").first().text();
-                			var synonymsText = $(item).find(" > .synonyms > .exg  > .exs").first().text();
-                			var synonyms = synonymsText.split(/,|;/).filter(synonym => synonym!= ' ' && synonym).map(function(item) {
-                                             return item.trim();
-                                           });
-                                           
-                            var newDefinition = {};
-                        	if(definition.length > 0)
-                        	    newDefinition.definition = definition;
-                        			                                   
-                            if(example.length > 0)
-                                newDefinition.example = example.substring(1, example.length - 1)
-                            
-                            if(synonyms.length > 0)
-                                newDefinition.synonyms = synonyms;
 
-                			meaningArray.push(newDefinition);
+            for (i = 0; i < grambs.length; i++) {
+                if (i + 1 > array[j]) {
+                    break;
+                }
+                var partofspeech = $(grambs[i]).find(".ps.pos .pos").text();
+                $(grambs[i]).find(".semb").each(function (i, element) {
+                    var meaningArray = [];
+                    $(element).find("> li").each(function (i, element) {
 
-                		})
-                		dictionary.meaning[partofspeech] = meaningArray.slice();
-                	})
-                		
-            }     
+                        var item = $(element).find("> .trg");
+
+                        var definition = $(item).find(" > p > .ind").text();
+                        var example = $(item).find(" > .exg  > .ex > em").first().text();
+                        var synonymsText = $(item).find(" > .synonyms > .exg  > .exs").first().text();
+                        var synonyms = synonymsText.split(/,|;/).filter(synonym => synonym != ' ' && synonym).map(function (item) {
+                            return item.trim();
+                        });
+
+                        var newDefinition = {};
+                        if (definition.length > 0)
+                            newDefinition.definition = definition;
+
+                        if (example.length > 0)
+                            newDefinition.example = example.substring(1, example.length - 1)
+
+                        if (synonyms.length > 0)
+                            newDefinition.synonyms = synonyms;
+
+                        meaningArray.push(newDefinition);
+
+                    })
+                    dictionary.meaning[partofspeech] = meaningArray.slice();
+                })
+
+            }
 
             // Creating Main Definition when there no group of definitions, like the words "is" or "are"
             if (JSON.stringify(dictionary.meaning) == '{"":[{}]}') {
@@ -117,22 +138,22 @@ app.get("/", function(req, res){
                         }
                     ]
                 }
-            }        
-            
-            Object.keys(dictionary).forEach(key => {(Array.isArray(dictionary[key]) && !dictionary[key].length) && delete dictionary[key]});
-            
-            if($(".hwg .hw").first()[0]){
-                res.header("Content-Type",'application/json');
+            }
+
+            Object.keys(dictionary).forEach(key => { (Array.isArray(dictionary[key]) && !dictionary[key].length) && delete dictionary[key] });
+
+            if ($(".hwg .hw").first()[0]) {
+                res.header("Content-Type", 'application/json');
                 res.header("Access-Control-Allow-Origin", "*");
                 res.send(JSON.stringify(dictionary, null, 4));
             }
-    
-            
+
+
         });
     }
 });
 
 
-app.listen(process.env.PORT, process.env.IP, function(){
-    console.log("I am listening...");
+app.listen(port, process.env.IP, function () {
+    console.log("I am listening on port: ", port);
 });
