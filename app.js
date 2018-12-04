@@ -81,29 +81,36 @@ app.get("/", function (req, res) {
 
             dictionary.meaning = {};
 
-            var i, j = 0;
-
-            var entryHead = $(".entryHead.primary_homograph");
-            var array = [];
-            for (i = 1; i < entryHead.length; i++) {
-                array[i - 1] = $("#" + entryHead[i - 1].attribs.id + " ~ .gramb").length - $("#" + entryHead[i].attribs.id + " ~ .gramb").length;
-            }
-            array.push($("#" + entryHead[entryHead.length - 1].attribs.id + " ~ .gramb").length);
-
+            var i
             var grambs = $("section.gramb");
 
+            var partBefore = ''
+            var partofspeech = ''
+            var definition = ''
+            var k = 1
             for (i = 0; i < grambs.length; i++) {
-                if (i + 1 > array[j]) {
-                    break;
+                partBefore = partofspeech
+                partofspeech = $(grambs[i]).find(".ps.pos .pos").text();
+                if (partofspeech == '') partofspeech = $(grambs[i]).find(".domain_labels").text().trim();
+                if (partofspeech == '' && partBefore != '') partofspeech = partBefore
+                if (partofspeech == '') partofspeech = "main definition"                                
+                if (partofspeech == partBefore) {
+                    k = k + 1
+                    partofspeech = partofspeech + k.toString()
+                }else{
+                    k = 1
                 }
-                var partofspeech = $(grambs[i]).find(".ps.pos .pos").text();
+                
                 $(grambs[i]).find(".semb").each(function (i, element) {
                     var meaningArray = [];
                     $(element).find("> li").each(function (i, element) {
 
                         var item = $(element).find("> .trg");
 
-                        var definition = $(item).find(" > p > .ind").text();
+                        definition = $(item).find(" > p > .ind").text();
+                        //if (definition == '') definition = $(grambs[0]).text();
+                        if (definition == '') definition = $(item).find(".crossReference").text();
+
                         var example = $(item).find(" > .exg  > .ex > em").first().text();
                         var synonymsText = $(item).find(" > .synonyms > .exg  > .exs").first().text();
                         var synonyms = synonymsText.split(/,|;/).filter(synonym => synonym != ' ' && synonym).map(function (item) {
@@ -123,21 +130,10 @@ app.get("/", function (req, res) {
                         meaningArray.push(newDefinition);
 
                     })
+                    if (definition =='') return
                     dictionary.meaning[partofspeech] = meaningArray.slice();
                 })
 
-            }
-
-            // Creating Main Definition when there no group of definitions, like the words "is" or "are"
-            if (JSON.stringify(dictionary.meaning) == '{"":[{}]}') {
-                var definition = $(grambs[0]).text();
-                dictionary.meaning = {
-                    'Main definition': [
-                        {
-                            "definition": definition
-                        }
-                    ]
-                }
             }
 
             Object.keys(dictionary).forEach(key => { (Array.isArray(dictionary[key]) && !dictionary[key].length) && delete dictionary[key] });
