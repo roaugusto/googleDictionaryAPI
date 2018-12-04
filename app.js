@@ -81,7 +81,7 @@ app.get("/", function (req, res) {
 
             dictionary.meaning = {};
 
-            var i
+            var i = 0;
             var grambs = $("section.gramb");
 
             var partBefore = ''
