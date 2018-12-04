@@ -1,6 +1,6 @@
 # Google Dictionary API
 
-Google does not provide API for Google Dictionary so I created one.
+This is a fork from meetDeveloper/googleDictionaryAPI
 
 ## Getting Started
 
