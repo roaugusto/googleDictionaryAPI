@@ -1,6 +1,6 @@
 # Google Dictionary API
 
-This is a fork of https://github.com/meetDeveloper/googleDictionaryAPI
+This is a fork from https://github.com/meetDeveloper/googleDictionaryAPI
 
 ## Getting Started
 
